@@ -11,6 +11,7 @@ import {
 import { SearchUserDto } from 'src/dto/search-user.dto';
 import { UpdateUserDto } from 'src/dto/update-user.dto';
 import { User } from 'src/entities/user.entity';
+import { UserStatusValidationPipes } from 'src/pipes/user-status-validation.pipe';
 import { UserService } from 'src/services/user.service';
 
 @Controller('users')
@@ -29,11 +30,11 @@ export class UserController {
   }
 
   @Patch('/users/:id')
-  update(
+  updateUser(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateUserDto: UpdateUserDto,
   ): Promise<User> {
-    return this.userService.update(id, updateUserDto);
+    return this.userService.updateUser(id, updateUserDto);
   }
 
   @Delete('/users/:id')

@@ -5,10 +5,10 @@ import { LoginDto } from '../dto/login.dto';
 import { RegisterDto } from '../dto/register.dto.ts';
 import { ResetPasswordDto } from '../dto/reset-password.dto';
 import { VerifyEmailDto } from '../dto/verify-email.dto.ts';
-import { SearchUserDto } from 'src/dto/search-user.dto.js';
-import { User } from 'src/entities/user.entity.js';
+import { SearchUserDto } from 'src/dto/search-user.dto';
+import { User } from 'src/entities/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
-import { UserRepository } from 'src/repositories/user.repository.js';
+import { UserRepository } from '../repositories/user.repository';
 
 @Injectable()
 export class AuthService {

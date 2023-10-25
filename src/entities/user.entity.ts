@@ -11,6 +11,7 @@ import {
 import { Role } from './role.entity';
 import { Session } from './session.entity';
 import { UserStatus } from '../enum/user-status.enum';
+import { Transform } from 'class-transformer';
 
 @Entity('users')
 export class User {
@@ -44,6 +45,7 @@ export class User {
 
   @ManyToMany(() => Role, (role) => role.users)
   @JoinTable({ name: 'user_roles' })
+  @Transform(({ value }) => value.name)
   roles: Role[];
 
   @OneToMany(() => Session, (session) => session.user)
