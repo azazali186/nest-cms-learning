@@ -1,0 +1,14 @@
+import { Controller, Get } from '@nestjs/common';
+import { SearchPermissionDto } from 'src/dto/search-permission.dto';
+import { Permission } from 'src/entities/permission.entity';
+import { PermissionService } from 'src/services/permission.service';
+
+@Controller('permissions')
+export class PermissionsController {
+  constructor(private readonly permissionService: PermissionService) {}
+
+  @Get()
+  findAll(filterDto: SearchPermissionDto): Promise<Permission[]> {
+    return this.permissionService.findAll(filterDto);
+  }
+}
