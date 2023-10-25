@@ -11,6 +11,7 @@ import {
   getPermissionNameFromRoute,
 } from './utils/helper.utils';
 import { ValidationPipe } from '@nestjs/common';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 let permissionRepo: Repository<Permission>;
 let roleRepo: Repository<Role>;
@@ -24,6 +25,16 @@ async function bootstrap() {
   app.enableCors();
   app.use(helmet());
   await app.startAllMicroservices();
+
+  const config = new DocumentBuilder()
+    .addBearerAuth()
+    .setTitle('Nest CMS API')
+    .setDescription('The Nest CMS API Management System')
+    .setVersion('1.0')
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('swagger', app, document);
+
   await app.listen(process.env.PORT || 3001);
 
   const entityManager: EntityManager = app.get(EntityManager);

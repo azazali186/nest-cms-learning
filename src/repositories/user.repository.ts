@@ -47,11 +47,11 @@ export class UserRepository extends Repository<User> {
       });
     }
 
-    const products = await query
-      .leftJoinAndSelect('user.role', 'role')
+    const users = await query
+      .leftJoinAndSelect('user.roles', 'roles')
       .getMany();
 
-    return products;
+    return users;
   }
 
   async register(registerDto: RegisterDto) {
@@ -192,7 +192,7 @@ export class UserRepository extends Repository<User> {
 
     return {
       data: {
-        user: { name, email, status, permissions },
+        user: { name, email, status, permissions, roles },
         permissions: allPermissions.map((p) => p.name),
         token: tokenDetails.tokenString,
       },

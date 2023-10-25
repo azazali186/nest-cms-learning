@@ -20,11 +20,16 @@ export class CheckPermissionMiddleware implements NestMiddleware {
 
   async use(req: Request, res: Response, next: NextFunction) {
     const currentPermission = getPermissionNameFromRoute(
-      req.originalUrl,
+      req.baseUrl,
       req.method,
     )
       .toUpperCase()
       .replaceAll('-', '_');
+
+    console.log('currentPermission  ', currentPermission);
+    console.log('currentPermission  path ', req.path);
+    console.log('currentPermission  original ', req.originalUrl);
+    console.log('currentPermission  url ', req.url);
 
     if (EXCLUDED_ROUTES.includes(currentPermission.toUpperCase())) {
       next();
@@ -32,32 +37,32 @@ export class CheckPermissionMiddleware implements NestMiddleware {
       const authHeader = req.headers.authorization;
       if (authHeader) {
         const token = authHeader.split(' ')[1];
-        try {
-          const decryptedToken = AES.decrypt(
-            token,
-            process.env.ENCRYPTION_KEY_TOKEN,
-          ).toString(enc.Utf8);
-          const decoded = this.jwtService.verify(decryptedToken, {
-            secret: process.env.JWT_SECRET,
-          });
-          const user = await this.usersService.findById(decoded.userId);
-
-          if (
-            user?.roles?.some((role) =>
-              role.permissions.some(
-                (permission) => permission.name === currentPermission,
-              ),
-            )
-          ) {
-            next();
-          } else {
-            throw new ForbiddenException(
-              'You do not have permission to access this route',
-            );
-          }
-        } catch (error) {
-          throw new ForbiddenException('Invalid token or permission denied');
+        // try {
+        const decryptedToken = AES.decrypt(
+          token,
+          process.env.ENCRYPTION_KEY_TOKEN,
+        ).toString(enc.Utf8);
+        const decoded = this.jwtService.verify(decryptedToken, {
+          secret: process.env.JWT_SECRET,
+        });
+        const user = await this.usersService.findById(decoded.userId);
+        // console.log('user  ', user);
+        if (
+          user?.roles?.some((role) =>
+            role.permissions.some(
+              (permission) => permission.name === currentPermission,
+            ),
+          )
+        ) {
+          next();
+        } else {
+          throw new ForbiddenException(
+            'You do not have permission to access this route',
+          );
         }
+        // } catch (error) {
+        //   throw new ForbiddenException('Invalid token or permission denied');
+        // }
       } else {
         throw new ForbiddenException('Token is required');
       }

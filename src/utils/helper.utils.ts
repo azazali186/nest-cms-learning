@@ -27,6 +27,9 @@ export function getPermissionNameFromRoute(
   if (path.includes('verify-email')) {
     path = 'verify-email';
   }
+  if (path.includes('swagger')) {
+    path = 'swagger';
+  }
   if (
     path.includes('approval') ||
     path.includes('reject') ||
@@ -48,6 +51,7 @@ export function getPermissionNameFromRoute(
 
 export const EXCLUDED_ROUTES = [
   'LOGIN',
+  'SWAGGER',
   'REGISTER',
   'LOGOUT',
   'FORGOT-PASSWORD',

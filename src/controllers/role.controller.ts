@@ -7,9 +7,12 @@ import {
   Post,
   ValidationPipe,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CreateRoleDto } from 'src/dto/create-role.dto';
 import { RoleService } from 'src/services/role.service';
 
+@ApiTags('Roles Management')
+@ApiBearerAuth()
 @Controller('roles')
 export class RoleController {
   constructor(private readonly roleService: RoleService) {}
