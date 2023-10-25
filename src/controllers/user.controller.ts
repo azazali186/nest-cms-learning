@@ -17,19 +17,19 @@ import { UserService } from 'src/services/user.service';
 @Controller('users')
 export class UserController {
   constructor(private readonly userService: UserService) {}
-  @Get('/users')
+  @Get('')
   findAll(
     @Query(UserStatusValidationPipes) filterDto: SearchUserDto,
   ): Promise<User[]> {
     return this.userService.findAll(filterDto);
   }
 
-  @Get('/users/:id')
+  @Get('/:id')
   findOne(@Param('id', ParseUUIDPipe) id: string): Promise<User> {
     return this.userService.findOne(id);
   }
 
-  @Patch('/users/:id')
+  @Patch('/:id')
   updateUser(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateUserDto: UpdateUserDto,
@@ -37,7 +37,7 @@ export class UserController {
     return this.userService.updateUser(id, updateUserDto);
   }
 
-  @Delete('/users/:id')
+  @Delete('/:id')
   remove(@Param() id: string) {
     return this.userService.remove(id);
   }

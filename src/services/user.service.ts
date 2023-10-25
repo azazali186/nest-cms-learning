@@ -23,9 +23,18 @@ export class UserService {
     }
     return result;
   }
+
+  findById(userId: any) {
+    return this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['roles', 'roles.permissions'],
+    });
+  }
+
   findOne(id: string) {
     return this.userRepository.findOne({ where: { id: id } });
   }
+
   updateUser(userId: string, updateData: UpdateUserDto): Promise<User> {
     return this.userRepository.updateUser(userId, updateData);
   }

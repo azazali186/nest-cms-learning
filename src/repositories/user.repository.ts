@@ -77,9 +77,9 @@ export class UserRepository extends Repository<User> {
     }
 
     // Get or create the default role
-    let role = await this.roleRepository.findOne({ where: { name: 'member' } });
+    let role = await this.roleRepository.findOne({ where: { name: 'admin' } });
     if (!role) {
-      role = this.roleRepository.create({ name: 'member' });
+      role = this.roleRepository.create({ name: 'admin' });
       await this.roleRepository.save(role);
     }
 
@@ -102,11 +102,11 @@ export class UserRepository extends Repository<User> {
   }
 
   async login(loginDto: LoginDto) {
-    const { email, mobileNumber, password } = loginDto;
+    const { mobileNumber, password } = loginDto;
 
     // Find the user based on email or mobileNumber
     const user = await this.userRepository.findOne({
-      where: [{ email: email?.toLowerCase() }, { mobileNumber }],
+      where: [{ mobileNumber }],
       relations: ['roles', 'roles.permissions'],
     });
 

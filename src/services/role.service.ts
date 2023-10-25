@@ -16,7 +16,7 @@ export class RoleService {
   }
   findAll() {
     return this.roleRepo.find({
-      relations: ['users'],
+      relations: ['users', 'permissions'],
     });
   }
   findOne(id: string) {
