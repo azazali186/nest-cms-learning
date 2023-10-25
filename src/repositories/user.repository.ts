@@ -2,7 +2,7 @@
 import { In, Repository } from 'typeorm';
 import { AES, enc } from 'crypto-js';
 import { InjectRepository } from '@nestjs/typeorm';
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { User } from 'src/entities/user.entity';
 import { JwtService } from '@nestjs/jwt';
 import { LoginDto } from 'src/dto/login.dto';
@@ -62,8 +62,8 @@ export class UserRepository extends Repository<User> {
       where: { email: email.toLowerCase() },
     });
     if (oldUserByEmail) {
-      throw new NotFoundException({
-        statusCode: 404,
+      throw new ConflictException({
+        statusCode: 409,
         message: `User registered with ${email} email`,
       });
     }
@@ -73,8 +73,8 @@ export class UserRepository extends Repository<User> {
       where: { mobileNumber },
     });
     if (oldUserByMobile) {
-      throw new NotFoundException({
-        statusCode: 404,
+      throw new ConflictException({
+        statusCode: 409,
         message: `User registered with ${mobileNumber} mobile number`,
       });
     }
