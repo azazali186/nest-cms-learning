@@ -13,6 +13,7 @@ import { RoleRepository } from './role.repository';
 import { Session } from 'src/entities/session.entity';
 import { SessionRepository } from './session.repository';
 import { RegisterDto } from 'src/dto/register.dto.ts';
+import { PermissionRepository } from './permission.repository';
 
 export class UserRepository extends Repository<User> {
   constructor(
@@ -20,6 +21,8 @@ export class UserRepository extends Repository<User> {
     private userRepository: Repository<User>,
     @InjectRepository(RoleRepository)
     public roleRepository: RoleRepository,
+    @InjectRepository(PermissionRepository)
+    public peramRepo: PermissionRepository,
     @InjectRepository(SessionRepository)
     public sessionRepository: SessionRepository,
     private jwtService: JwtService,
@@ -104,7 +107,7 @@ export class UserRepository extends Repository<User> {
   async login(loginDto: LoginDto) {
     const { mobileNumber, password } = loginDto;
 
-    // Find the user based on email or mobileNumber
+    // Find the user based on mobileNumber
     const user = await this.userRepository.findOne({
       where: [{ mobileNumber }],
       relations: ['roles', 'roles.permissions'],
@@ -170,7 +173,7 @@ export class UserRepository extends Repository<User> {
     return session;
   }
 
-  prepareLoginResponse(user: User, tokenDetails: any) {
+  async prepareLoginResponse(user: User, tokenDetails: any) {
     const roles = user.roles.map((role) => role.name);
 
     const permissions = [
@@ -183,13 +186,18 @@ export class UserRepository extends Repository<User> {
       ),
     ];
 
+    const allPermissions = await this.peramRepo.find();
+
     const { name, email, status } = user;
 
     return {
-      user: { name, email, status },
-      roles,
-      permissions,
-      token: tokenDetails.tokenString,
+      data: {
+        user: { name, email, status, permissions },
+        permissions: allPermissions.map((p) => p.name),
+        token: tokenDetails.tokenString,
+      },
+      statusCode: 200,
+      message: 'Login Successful',
     };
   }
 

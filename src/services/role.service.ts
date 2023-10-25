@@ -14,10 +14,15 @@ export class RoleService {
   createRole(createRoleDto: CreateRoleDto) {
     return this.roleRepo.createRole(createRoleDto);
   }
-  findAll() {
-    return this.roleRepo.find({
+  async findAll() {
+    const roles = await this.roleRepo.find({
       relations: ['users', 'permissions'],
     });
+    return {
+      data: roles,
+      statusCode: 200,
+      message: 'Fetch Roles',
+    };
   }
   findOne(id: string) {
     return this.roleRepo.findOne({

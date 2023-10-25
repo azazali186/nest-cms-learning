@@ -14,6 +14,7 @@ import { User } from './entities/user.entity';
 import { RoleRepository } from './repositories/role.repository';
 import { SessionRepository } from './repositories/session.repository';
 import { Session } from './entities/session.entity';
+import { PermissionRepository } from './repositories/permission.repository';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { Session } from './entities/session.entity';
     UserRepository,
     RoleRepository,
     SessionRepository,
+    PermissionRepository,
   ],
 })
 export class AppModule implements NestModule {
