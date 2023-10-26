@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsString,
   IsOptional,
@@ -9,23 +9,23 @@ import {
 } from 'class-validator';
 
 export class UpdateUserDto {
-  @ApiProperty()
+  @ApiPropertyOptional()
   @IsString()
   @IsNotEmpty()
   id: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
   @IsString()
   @MinLength(8)
   @IsOptional()
   password?: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
   @IsString()
   @IsOptional()
   name?: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
   @IsArray()
   @ArrayNotEmpty()
   @IsOptional()

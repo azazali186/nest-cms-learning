@@ -19,17 +19,14 @@ export class CheckPermissionMiddleware implements NestMiddleware {
   ) {}
 
   async use(req: Request, res: Response, next: NextFunction) {
+    const routeWithoutId = req.baseUrl.replace(/\/[a-f0-9-]+$/, '/:id');
+
     const currentPermission = getPermissionNameFromRoute(
-      req.baseUrl,
+      routeWithoutId,
       req.method,
     )
       .toUpperCase()
       .replaceAll('-', '_');
-
-    console.log('currentPermission  ', currentPermission);
-    console.log('currentPermission  path ', req.path);
-    console.log('currentPermission  original ', req.originalUrl);
-    console.log('currentPermission  url ', req.url);
 
     if (EXCLUDED_ROUTES.includes(currentPermission.toUpperCase())) {
       next();

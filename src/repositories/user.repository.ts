@@ -38,6 +38,17 @@ export class UserRepository extends Repository<User> {
     const { status, search } = filterDto;
     const query = this.userRepository.createQueryBuilder('user');
 
+    // Select specific columns to ensure the password isn't returned.
+    query.select([
+      'user.id',
+      'user.email',
+      'user.name',
+      'user.mobileNumber',
+      'user.created_at',
+      'user.status',
+      // Intentionally leaving out 'user.password'
+    ]);
+
     if (status) {
       query.andWhere('user.status = :status', { status });
     }
