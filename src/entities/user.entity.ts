@@ -2,38 +2,54 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  ManyToMany,
-  JoinTable,
   OneToMany,
+  JoinColumn,
+  ManyToOne,
+  OneToOne,
 } from 'typeorm';
 import { Role } from './role.entity';
 import { Session } from './session.entity';
 import { UserStatus } from '../enum/user-status.enum';
-// import { Transform } from 'class-transformer';
 
 @Entity('users')
 export class User {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn()
+  id: number;
 
   @Column({ unique: true })
-  email: string;
+  username: string;
 
   @Column()
   password: string;
 
+  @Column({ default: '', length: 15 })
+  mobile_number: string;
+
   @Column()
   name: string;
 
-  @Column({ unique: true })
-  mobileNumber: string;
-
-  @CreateDateColumn()
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
 
-  @UpdateDateColumn()
+  @Column({
+    type: 'timestamp',
+    nullable: true,
+  })
+  last_login: Date;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn()
+  created_by: User | null;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn()
+  updated_by: User | null;
+
+  @Column({
+    type: 'timestamp',
+    onUpdate: 'CURRENT_TIMESTAMP',
+    nullable: true,
+  })
   updated_at: Date;
 
   @Column({
@@ -43,11 +59,21 @@ export class User {
   })
   status: UserStatus;
 
-  @ManyToMany(() => Role, (role) => role.users)
-  @JoinTable({ name: 'user_roles' })
+  @ManyToOne(() => Role, (role) => role.users)
   // @Transform(({ value }) => value.name)
-  roles: Role[];
+  roles: Role;
 
   @OneToMany(() => Session, (session) => session.user)
   sessions: Session[];
+
+  @OneToOne(() => Session)
+  @JoinColumn()
+  get latestSession(): Session | undefined {
+    if (this.sessions && this.sessions.length > 0) {
+      return this.sessions.reduce((latest, current) =>
+        current.created_at > latest.created_at ? current : latest,
+      );
+    }
+    return undefined;
+  }
 }

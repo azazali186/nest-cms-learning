@@ -1,16 +1,11 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  ManyToMany,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToMany } from 'typeorm';
 import { Role } from './role.entity';
+import { AdminPage } from './admin-page.entity';
 
 @Entity('permissions')
 export class Permission {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn()
+  id: number;
 
   @Column({ unique: true })
   name: string;
@@ -21,12 +16,22 @@ export class Permission {
   @Column({ nullable: false })
   path: string;
 
-  @Column({ default: 'web' })
-  guard: string;
+  @Column({ nullable: false, default: true })
+  status: boolean;
 
-  @CreateDateColumn()
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
+
+  @Column({
+    type: 'timestamp',
+    nullable: true,
+    onUpdate: 'CURRENT_TIMESTAMP',
+  })
+  updated_at: Date;
 
   @ManyToMany(() => Role, (role) => role.permissions)
   roles: Role[];
+
+  @ManyToMany(() => AdminPage, (ap) => ap.permissions)
+  admin_pages: AdminPage[];
 }

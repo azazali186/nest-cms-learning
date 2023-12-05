@@ -1,19 +1,29 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { In, Repository } from 'typeorm';
+import { In, Like, Repository } from 'typeorm';
 import { AES, enc } from 'crypto-js';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { User } from 'src/entities/user.entity';
 import { JwtService } from '@nestjs/jwt';
 import { LoginDto } from 'src/dto/login.dto';
 import { SearchUserDto } from 'src/dto/search-user.dto';
 import { UpdateUserDto } from 'src/dto/update-user.dto';
-import * as bcrypt from 'bcryptjs';
 import { RoleRepository } from './role.repository';
-import { Session } from 'src/entities/session.entity';
 import { SessionRepository } from './session.repository';
 import { RegisterDto } from 'src/dto/register.dto.ts';
 import { PermissionRepository } from './permission.repository';
+import { AdminPageRepository } from './admin-page.repository';
+import { ApiResponse } from 'src/utils2/response.util';
+import { CreateUserDto } from 'src/dto/create-user.dto';
+import { LangService } from 'src/services/lang.service';
+import { UserStatus } from 'src/enum/user-status.enum';
+import { splitDateRange } from '../utils2/helper.utils';
+import { ChangePasswordDto } from 'src/dto/change-password.dto';
 
 export class UserRepository extends Repository<User> {
   constructor(
@@ -25,7 +35,10 @@ export class UserRepository extends Repository<User> {
     public peramRepo: PermissionRepository,
     @InjectRepository(SessionRepository)
     public sessionRepository: SessionRepository,
+    @InjectRepository(AdminPageRepository)
+    public apRepo: AdminPageRepository,
     private jwtService: JwtService,
+    private langService: LangService,
   ) {
     super(
       userRepository.target,
@@ -34,66 +47,94 @@ export class UserRepository extends Repository<User> {
     );
   }
 
-  async getUsers(filterDto: SearchUserDto): Promise<User[]> {
-    const { status, search } = filterDto;
-    const query = this.userRepository.createQueryBuilder('user');
+  async findSessionToken(toke: string) {
+    const token = await this.sessionRepository.findOne({
+      where: {
+        stringToken: toke,
+      },
+    });
+    return token;
+  }
 
-    // Select specific columns to ensure the password isn't returned.
-    query.select([
-      'user.id',
-      'user.email',
-      'user.name',
-      'user.mobileNumber',
-      'user.created_at',
-      'user.status',
-      // Intentionally leaving out 'user.password'
-    ]);
+  async getUsers(filterDto: SearchUserDto) {
+    const { status, search, createdDate } = filterDto;
+    const limit =
+      filterDto.limit && !isNaN(filterDto.limit) && filterDto.limit > 0
+        ? filterDto.limit
+        : 10;
+    const offset =
+      filterDto.offset && !isNaN(filterDto.offset) && filterDto.offset >= 0
+        ? filterDto.offset
+        : 0;
+    const query = this.userRepository.createQueryBuilder('user');
 
     if (status) {
       query.andWhere('user.status = :status', { status });
     }
     if (search) {
-      query.andWhere('(user.name LIKE :search OR user.email LIKE :search)', {
-        search: `%${search}%`,
+      query.andWhere(
+        '(user.name LIKE :search OR user.username LIKE :search OR user.mobile_number LIKE :search)',
+        {
+          search: `%${search}%`,
+        },
+      );
+    }
+    if (createdDate) {
+      const { startDate, endDate } = splitDateRange(createdDate);
+      query.andWhere('(user.created_at BETWEEN :startDate AND :endDate)', {
+        startDate: startDate,
+        endDate: endDate,
       });
     }
 
-    const users = await query
+    const [users, count] = await query
       .leftJoinAndSelect('user.roles', 'roles')
-      .getMany();
+      .leftJoinAndSelect('user.updated_by', 'updated_by')
+      .leftJoinAndSelect('user.created_by', 'created_by')
+      .select([
+        'user.id',
+        'user.username',
+        'user.name',
+        'user.created_at',
+        'user.updated_at',
+        'user.status',
+        'created_by.id',
+        'created_by.username',
+        'updated_by.id',
+        'updated_by.username',
+        'user.mobile_number',
+        'roles.name',
+      ])
+      .skip(filterDto.offset)
+      .take(filterDto.limit)
+      .getManyAndCount();
 
-    return users;
+    return ApiResponse(
+      { list: users, count: count },
+      200,
+      this.langService.getTranslation('GET_DATA_SUCCESS', 'Users'),
+    );
   }
 
   async register(registerDto: RegisterDto) {
-    const { name, email, mobileNumber } = registerDto;
+    const { name, username } = registerDto;
 
     // Check for existing user
     const oldUserByEmail = await this.userRepository.findOne({
-      where: { email: email.toLowerCase() },
+      where: { username: username },
     });
     if (oldUserByEmail) {
       throw new ConflictException({
         statusCode: 409,
-        message: `User registered with ${email} email`,
-      });
-    }
-
-    // Check for existing user by mobile number
-    const oldUserByMobile = await this.userRepository.findOne({
-      where: { mobileNumber },
-    });
-    if (oldUserByMobile) {
-      throw new ConflictException({
-        statusCode: 409,
-        message: `User registered with ${mobileNumber} mobile number`,
+        message: `USER_EXIST`,
+        param: username,
       });
     }
 
     // Get or create the default role
-    let role = await this.roleRepository.findOne({ where: { name: 'admin' } });
+    let role = await this.roleRepository.findOne({ where: { name: 'member' } });
     if (!role) {
-      role = this.roleRepository.create({ name: 'admin' });
+      role = this.roleRepository.create({ name: 'member' });
       await this.roleRepository.save(role);
     }
 
@@ -104,30 +145,40 @@ export class UserRepository extends Repository<User> {
     ).toString();
     const user = this.userRepository.create({
       name: name,
-      email: email.toLowerCase(),
+      username: username,
       password: hashPassord,
-      mobileNumber: mobileNumber,
-      roles: [role],
+      roles: role,
     });
     await this.userRepository.save(user);
 
     const { password, ...others } = user;
-    return others;
+    return ApiResponse(
+      others,
+      201,
+      this.langService.getTranslation('REGISTER_SUCCESS'),
+    );
   }
 
   async login(loginDto: LoginDto) {
-    const { mobileNumber, password } = loginDto;
+    const { username, password } = loginDto;
 
     // Find the user based on mobileNumber
     const user = await this.userRepository.findOne({
-      where: [{ mobileNumber }],
+      where: [{ username }],
       relations: ['roles', 'roles.permissions'],
     });
 
     if (!user) {
       throw new NotFoundException({
         statusCode: 404,
-        message: `User not found with given credentials`,
+        message: `WRONG_USERNAME`,
+        param: username,
+      });
+    }
+    if (user.status === UserStatus.INACTIVE) {
+      throw new UnauthorizedException({
+        statusCode: 401,
+        message: 'DISABLED_ACCOUNT',
       });
     }
 
@@ -139,23 +190,24 @@ export class UserRepository extends Repository<User> {
     if (decryptedPassword !== password) {
       throw new NotFoundException({
         statusCode: 404,
-        message: `Incorrect password`,
+        message: 'WRONG_PASSWORD',
       });
     }
+    // console.log('login User', user);
 
     // Generate JWT token and create a session
     const tokenDetails = await this.generateToken(user);
     const session = this.createSession(tokenDetails, user);
-    await this.sessionRepository.save(session);
+    await session;
 
     // Prepare the response
-    const response = this.prepareLoginResponse(user, tokenDetails);
+    const response = await this.prepareLoginResponse(user, tokenDetails);
 
     return response;
   }
 
   async generateToken(user: User) {
-    const payload = { sub: user.id, username: user.email };
+    const payload = { sub: user.id, username: user.username };
     const token = await this.jwtService.signAsync(payload, {
       secret: process.env.JWT_SECRET,
     });
@@ -170,8 +222,16 @@ export class UserRepository extends Repository<User> {
     };
   }
 
-  createSession(tokenDetails: any, user: User) {
-    const expiryDate = new Date(Date.now() + 3600 * 1000); // 1 hour expiry
+  async createSession(tokenDetails: any, user: User) {
+    const expiryDate = new Date(Date.now() + 3600 * (1000 * 240)); // 10 Days
+
+    if (process.env.SINGLE_USER_LOGIN) {
+      await this.sessionRepository
+        .createQueryBuilder('sessions')
+        .delete()
+        .where('userId = :userId', { userId: user.id })
+        .execute();
+    }
 
     const session = this.sessionRepository.create({
       token: tokenDetails.token,
@@ -181,54 +241,43 @@ export class UserRepository extends Repository<User> {
       is_expired: false,
     });
 
-    return session;
+    return this.sessionRepository.save(session);
   }
 
   async prepareLoginResponse(user: User, tokenDetails: any) {
-    const roles = user.roles.map((role) => role.name);
+    const { name, username, status } = user;
 
-    const permissions = [
-      ...new Set(
-        user.roles.flatMap((role) =>
-          role.permissions
-            ? role.permissions.map((permission) => permission.name)
-            : [],
-        ),
-      ),
-    ];
-
-    const allPermissions = await this.peramRepo.find();
-
-    const { name, email, status } = user;
-
-    return {
-      data: {
-        user: { name, email, status, permissions, roles },
-        permissions: allPermissions.map((p) => p.name),
+    return ApiResponse(
+      {
+        user: { name, username, status },
+        // permissions: allPermissions.map((p) => p.name),
         token: tokenDetails.tokenString,
       },
-      statusCode: 200,
-      message: 'Login Successful',
-    };
+      200,
+      this.langService.getTranslation('LOGIN_SUCCESS'),
+    );
   }
 
-  async updateUser(userId: string, updateData: UpdateUserDto): Promise<User> {
+  async updateUser(userId: any, updateData: UpdateUserDto, user) {
     const userToUpdate = await this.userRepository.findOne({
       where: { id: userId },
-      relations: ['roles'],
     });
 
     if (!userToUpdate) {
-      throw new NotFoundException(`User with ID ${userId} not found`);
+      throw new NotFoundException({
+        statusCode: 409,
+        message: `INVALID_USER_ID`,
+      });
     }
 
-    const { roleIds, password, ...otherUpdateFields } = updateData;
+    const { roleId, password, name, username, mobileNumber, status } =
+      updateData;
 
     // If roleIds are provided, update the roles of the user
-    if (roleIds) {
-      userToUpdate.roles = await this.roleRepository.find({
+    if (roleId) {
+      userToUpdate.roles = await this.roleRepository.findOne({
         where: {
-          id: In(roleIds),
+          id: roleId,
         },
       });
     }
@@ -241,11 +290,144 @@ export class UserRepository extends Repository<User> {
       ).toString();
     }
 
-    // Merge any other update fields into the user entity
-    this.userRepository.merge(userToUpdate, otherUpdateFields);
+    if (name) {
+      userToUpdate.name = name;
+    }
+
+    if (status) {
+      userToUpdate.status = status;
+    }
+
+    if (username) {
+      const checkUsername = await this.userRepository.findOne({
+        where: { username: username },
+      });
+      if (checkUsername && checkUsername.id != userToUpdate.id) {
+        throw new ConflictException({
+          statusCode: 409,
+          message: `USER_EXIST`,
+          param: username,
+        }).getResponse();
+      }
+      userToUpdate.username = username;
+    }
+
+    if (mobileNumber) {
+      userToUpdate.mobile_number = mobileNumber;
+    }
+
+    userToUpdate.updated_by = user;
 
     await this.userRepository.save(userToUpdate);
 
-    return userToUpdate;
+    return ApiResponse(
+      null,
+      200,
+      this.langService.getTranslation('UPDATED_SUCCESSFULLY', 'User'),
+    );
+  }
+
+  async createUser(createUserDto: CreateUserDto, userId: number) {
+    const { name, password, username, roleId, mobileNumber } = createUserDto;
+
+    const oldUserByEmail = await this.userRepository.findOne({
+      where: { username: username },
+    });
+
+    if (oldUserByEmail) {
+      throw new ConflictException({
+        statusCode: 409,
+        message: `USER_EXIST`,
+        param: username,
+      });
+    }
+
+    const role = await this.roleRepository.findOne({ where: { id: roleId } });
+
+    if (!role) {
+      throw new BadRequestException({
+        statusCode: 400,
+        message: 'INVALID_ROLE_ID',
+      });
+    }
+
+    const createdByUser = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    const hashPassword = AES.encrypt(
+      password,
+      process.env.ENCRYPTION_KEY,
+    ).toString();
+
+    const user = this.userRepository.create({
+      name: name,
+      username: username,
+      password: hashPassword,
+      mobile_number: mobileNumber,
+      roles: role,
+      created_by: createdByUser,
+    });
+
+    await this.userRepository.save(user);
+
+    return ApiResponse(
+      null,
+      201,
+      this.langService.getTranslation('CREATED_SUCCESSFULLY', 'User'),
+    );
+  }
+
+  async logout(req: any) {
+    const userToUpdate = await this.findOne({ where: { id: req.user.id } });
+    userToUpdate.last_login = new Date();
+    const session = await this.sessionRepository.findOne({
+      where: { stringToken: req.user.token },
+    });
+    session.is_expired = true;
+    await this.sessionRepository.save(session);
+    await this.save(userToUpdate);
+    return ApiResponse(null, 200, this.langService.getTranslation('LOGOUT'));
+  }
+
+  async changePassword(dtoReq: ChangePasswordDto, req: any) {
+    const { password, new_password } = dtoReq;
+    const user = await this.userRepository.findOne({
+      where: [{ id: req.user.id }],
+    });
+
+    if (user.status === UserStatus.INACTIVE) {
+      throw new UnauthorizedException({
+        statusCode: 401,
+        message: 'DISABLED_ACCOUNT',
+      });
+    }
+
+    // Check password
+    const decryptedPassword = AES.decrypt(
+      user.password,
+      process.env.ENCRYPTION_KEY,
+    ).toString(enc.Utf8);
+    if (decryptedPassword !== password) {
+      throw new NotFoundException({
+        statusCode: 404,
+        message: 'WRONG_PASSWORD',
+      });
+    }
+    const hashPassord = AES.encrypt(
+      new_password,
+      process.env.ENCRYPTION_KEY,
+    ).toString();
+    user.password = hashPassord;
+
+    await this.userRepository.save(user);
+
+    await this.logout(req);
+
+    return ApiResponse(
+      null,
+      200,
+      this.langService.getTranslation('UPDATED_SUCCESSFULLY', 'User Password'),
+    );
   }
 }

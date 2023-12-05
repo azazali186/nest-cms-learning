@@ -2,18 +2,21 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
-  CreateDateColumn,
   ManyToMany,
   JoinTable,
   EntityManager,
+  OneToMany,
+  JoinColumn,
+  ManyToOne,
 } from 'typeorm';
 import { User } from './user.entity';
 import { Permission } from './permission.entity';
+import { AdminPage } from './admin-page.entity';
 
 @Entity('roles')
 export class Role {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn()
+  id: number;
 
   @Column({ unique: true })
   name: string;
@@ -21,15 +24,31 @@ export class Role {
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @CreateDateColumn()
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
 
-  @ManyToMany(() => User, (user) => user.roles)
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'created_by_id' })
+  created_by: User | null;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'updated_by_id' })
+  updated_by: User | null;
+
+  @Column({
+    type: 'timestamp',
+    onUpdate: 'CURRENT_TIMESTAMP',
+    nullable: true,
+  })
+  updated_at: Date;
+
+  @OneToMany(() => User, (user) => user.roles)
   users: User[];
 
   @ManyToMany(() => Permission, (permission) => permission.roles)
   @JoinTable({ name: 'role_permissions' })
   permissions: Permission[];
+  adminPages: AdminPage[];
 
   // Get default role or create if not exists
   static async getDefaultRole(entityManager: EntityManager): Promise<Role> {

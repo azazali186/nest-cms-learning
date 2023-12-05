@@ -1,8 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CreateRoleDto } from 'src/dto/create-role.dto';
+import { SearchRoleDto } from 'src/dto/search-role.dto';
 import { UpdateRoleDto } from 'src/dto/update-role.dto';
 import { RoleRepository } from 'src/repositories/role.repository';
+import { ApiResponse } from 'src/utils2/response.util';
 
 @Injectable()
 export class RoleService {
@@ -11,29 +13,23 @@ export class RoleService {
     public roleRepo: RoleRepository,
   ) {}
 
-  createRole(createRoleDto: CreateRoleDto) {
-    return this.roleRepo.createRole(createRoleDto);
+  createRole(createRoleDto: CreateRoleDto, userId) {
+    return this.roleRepo.createRole(createRoleDto, userId);
   }
-  async findAll() {
-    const roles = await this.roleRepo.find({
-      relations: ['users', 'permissions'],
-    });
-    return {
-      data: roles,
-      statusCode: 200,
-      message: 'Fetch Roles',
-    };
+  async findAll(name: SearchRoleDto) {
+    return this.roleRepo.findAllRoleWithCount(name);
   }
-  findOne(id: string) {
-    return this.roleRepo.findOne({
-      where: { id },
-      relations: ['users'],
-    });
+  findOne(id: number) {
+    return this.roleRepo.getRoleById(id);
   }
-  update(id: string, updateRoleDto: UpdateRoleDto) {
-    return this.roleRepo.updateRole(id, updateRoleDto);
+  update(id: any, req: UpdateRoleDto) {
+    return this.roleRepo.updateRole(id, req);
   }
-  remove(id: string) {
-    return this.roleRepo.delete(id);
+  async remove(id: number) {
+    const res = await this.roleRepo.delete(id);
+    if (res.affected === 0) {
+      throw new NotFoundException(`Role with ID ${id} not found`);
+    }
+    return ApiResponse(null, 200, 'Role Deleted');
   }
 }

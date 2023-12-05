@@ -1,5 +1,5 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
-import { AuthModule } from './modules/auth.module';
+import { AuthModule } from './modules/common.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { typeOrmConfig } from './config/typeorm.config';
 import { ConfigModule } from '@nestjs/config';
@@ -15,6 +15,9 @@ import { RoleRepository } from './repositories/role.repository';
 import { SessionRepository } from './repositories/session.repository';
 import { Session } from './entities/session.entity';
 import { PermissionRepository } from './repositories/permission.repository';
+import { WsGateway } from './ws/ws.gateway';
+import { JwtWebSocketMiddleware } from './middleware/jwt-socket.middlwware';
+import { JwtAuthService } from './services/jwt-auth.service';
 
 @Module({
   imports: [
@@ -50,6 +53,9 @@ import { PermissionRepository } from './repositories/permission.repository';
     RoleRepository,
     SessionRepository,
     PermissionRepository,
+    JwtWebSocketMiddleware,
+    JwtAuthService,
+    WsGateway,
   ],
 })
 export class AppModule implements NestModule {

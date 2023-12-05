@@ -1,27 +1,21 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  ManyToOne,
-} from 'typeorm';
+import { Entity, Column, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { User } from './user.entity';
 
 @Entity('sessions')
 export class Session {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn()
+  id: number;
 
-  @Column({ unique: true })
+  @Column({ type: 'text' })
   token: string;
 
-  @Column({ unique: true })
-  stringToken: string;
+  @Column({ type: 'text' })
+  string_token: string;
 
-  @CreateDateColumn()
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
 
-  @Column('timestamp', { nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
   expires_at: Date;
 
   @Column({ type: 'boolean', default: false })

@@ -12,7 +12,7 @@ export class PermissionService {
     public permissionRepository: PermissionRepository,
   ) {}
 
-  async remove(id: string) {
+  async remove(id: number) {
     const result = await this.permissionRepository.delete(id);
     if (result.affected === 0) {
       throw new NotFoundException(`Permission with ID ${id} not found`);
@@ -20,7 +20,7 @@ export class PermissionService {
     return result;
   }
 
-  findAll(filterDto: SearchPermissionDto): Promise<Permission[]> {
-    return this.permissionRepository.find();
+  findAll(filterDto: SearchPermissionDto) {
+    return this.permissionRepository.findPermissionByAdminPage();
   }
 }

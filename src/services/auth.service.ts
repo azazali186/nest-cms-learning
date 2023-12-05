@@ -21,7 +21,7 @@ export class AuthService {
     return this.userRepository.register(registerDto);
   }
 
-  async findAll(filterDto: SearchUserDto): Promise<User[]> {
+  async findAll(filterDto: SearchUserDto) {
     return this.userRepository.getUsers(filterDto);
   }
 
@@ -29,13 +29,16 @@ export class AuthService {
     return this.userRepository.findOne({
       relations: ['role'],
       where: {
-        id,
+        id: id,
       },
     });
   }
 
   login(loginDto: LoginDto) {
     return this.userRepository.login(loginDto);
+  }
+  logout(req: any) {
+    return this.userRepository.logout(req);
   }
   resetPassword(resetPasswordDto: ResetPasswordDto) {
     throw new Error('Method not implemented.');

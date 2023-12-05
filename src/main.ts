@@ -1,3 +1,6 @@
+import * as dotenv from 'dotenv';
+
+dotenv.config({ path: `.env.${process.env.NODE_ENV}` });
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ExpressAdapter } from '@nestjs/platform-express';
@@ -12,30 +15,56 @@ import {
 } from './utils/helper.utils';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import * as swaggerUi from 'swagger-ui-express';
+import {
+  accessLogMiddleware,
+  errorLogMiddleware,
+} from './middleware/logging.middleware';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 
 let permissionRepo: Repository<Permission>;
 let roleRepo: Repository<Role>;
 
 async function bootstrap() {
   const server = express();
-  const app = await NestFactory.create(AppModule, new ExpressAdapter(server));
+  const app = await NestFactory.create(AppModule, new ExpressAdapter(server), {
+    httpsOptions: null,
+  });
+  app.use(accessLogMiddleware());
 
   app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(new ValidationPipe());
+
+  app.useWebSocketAdapter(new IoAdapter(app));
+  // app.useGlobalFilters(new HttpExceptionFilter());
   app.enableCors();
-  app.use(helmet());
+
   await app.startAllMicroservices();
 
   const config = new DocumentBuilder()
     .addBearerAuth()
-    .setTitle('Nest CMS API')
-    .setDescription('The Nest CMS API Management System')
+    .setTitle('Next CMS Management API')
+    .setDescription('Next CMS Management API')
     .setVersion('1.0')
+    .addServer(process.env.SWAGGER_SERVER)
+    .addServer(process.env.SWAGGER_DEV_SERVER)
     .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('swagger', app, document);
 
-  await app.listen(process.env.PORT || 3001);
+  const document = SwaggerModule.createDocument(app, config);
+
+  server.use(
+    '/swagger',
+    swaggerUi.serve,
+    swaggerUi.setup(document, {
+      swaggerOptions: {
+        persistAuthorization: true,
+      },
+    }),
+  );
+
+  app.use(helmet());
+  app.use(errorLogMiddleware);
+  await app.listen(process.env.PORT || 4000);
 
   const entityManager: EntityManager = app.get(EntityManager);
   permissionRepo = entityManager.getRepository(Permission);
@@ -43,16 +72,19 @@ async function bootstrap() {
 
   extractAndSaveRoutes(server);
 }
+
 bootstrap();
 
 function extractAndSaveRoutes(server: express.Express) {
+  // console.log('server._router.stack   :   ', server._router.stack);
   const routes = server._router.stack
     .filter((layer: { route: any }) => layer.route)
-    .map((layer: { route: { methods: object; path: any } }) => ({
+    .map((layer: { route: { methods: object; path: any; stack: any } }) => ({
       methods: Object.keys(layer.route.methods).map((method) =>
         method.toUpperCase(),
       ),
       path: layer.route.path,
+      stack: layer.route?.stack || '',
     }));
 
   for (const route of routes) {
@@ -80,7 +112,6 @@ function savePermission(name: string, path: any): Promise<Permission> {
   const permission = permissionRepo.create({
     name,
     path,
-    guard: 'web',
   });
 
   return permissionRepo.save(permission);

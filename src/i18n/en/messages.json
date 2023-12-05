@@ -1,0 +1,9 @@
+{
+  "CREATED_SUCCESSFULLY": "{data} created successfully",
+  "UPDATED_SUCCESSFULLY": "{data} updated successfully",
+  "GET_DATA_SUCCESS": "Get {data} successfully",
+  "LOGIN_SUCCESS": "Login successfully",
+  "REGISTER_SUCCESS": "Register successfully",
+  "LOGOUT": "Logout successfully",
+  "DELETED_SUCCESSFULLY": "{data} deleted successfully"
+}
